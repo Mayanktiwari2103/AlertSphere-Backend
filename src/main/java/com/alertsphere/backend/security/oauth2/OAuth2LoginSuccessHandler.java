@@ -64,7 +64,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String token = jwtUtil.generateToken(email, user.getRole());
 
         // 3. Build the redirect URL
-        String targetUrl = UriComponentsBuilder.fromUriString("https://alertsphere.vercel.app/login-success")
+        String targetUrl = UriComponentsBuilder.fromUriString("https://alert-sphere-tau.vercel.app/")
                 .queryParam("token", token)
                 .build().toUriString();
 
