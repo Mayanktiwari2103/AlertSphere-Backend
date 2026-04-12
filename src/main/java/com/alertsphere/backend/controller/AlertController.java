@@ -16,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import com.alertsphere.backend.model.User;
 
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {"http://localhost:5173", "https://alert-sphere-tau.vercel.app"})
 @RestController
 @RequestMapping("/api/alerts")
 public class AlertController {
