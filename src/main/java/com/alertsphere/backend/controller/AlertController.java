@@ -1,4 +1,5 @@
 package com.alertsphere.backend.controller;
+import com.alertsphere.backend.service.GeminiService;
 import com.alertsphere.backend.service.TwilioService; // 🚨 Add this
 import com.alertsphere.backend.repository.UserRepository; // 🚨 Add this
 import java.util.concurrent.CompletableFuture; // 🚨 Add this
@@ -23,6 +24,9 @@ public class AlertController {
 
     @Autowired
     private AlertRepository alertRepository;
+
+    @Autowired
+    private  GeminiService geminiService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -70,6 +74,17 @@ public class AlertController {
         alert.setDownvotes(0);
         alert.setVerified(false);
 
+        // --- GEMINI AI VERIFICATION LOGIC ---
+        // We check if the incident is real before saving.
+        String aiVerification = geminiService.verifyIncident(description);
+        if ("REAL".equalsIgnoreCase(aiVerification)) {
+            alert.setVerified(true);
+            System.out.println("🤖 Gemini: Incident verified as REAL.");
+        } else {
+            alert.setVerified(false);
+            System.out.println("🤖 Gemini: Incident flagged as potentially FAKE.");
+        }
+
         // AWS S3 Logic: Upload the image and save the URL
         if (image != null && !image.isEmpty()) {
             String imageUrl = s3Service.uploadFile(image);
@@ -81,27 +96,25 @@ public class AlertController {
         // Broadcast via WebSocket
         messagingTemplate.convertAndSend("/topic/alerts", savedAlert);
 
-        CompletableFuture.runAsync(() -> {
-            try {
-                System.out.println("DEBUG: Starting SMS broadcast for alert: " + savedAlert.getTitle());
+       // Only send SMS if Gemini verified it as REAL to save Twilio credits/spam
+        if (savedAlert.isVerified()) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    List<User> users = userRepository.findAll();
+                    String smsMessage = "🚨 AlertSphere: " + savedAlert.getAlertType() +
+                            " reported at " + savedAlert.getLocationName() +
+                            ". Title: " + savedAlert.getTitle();
 
-                // Get all users from DB
-                List<User> users = userRepository.findAll();
-
-                String smsMessage = "🚨 AlertSphere: " + savedAlert.getAlertType() +
-                        " reported at " + savedAlert.getLocationName() +
-                        ". Title: " + savedAlert.getTitle();
-
-                for (User user : users) {
-                    if (user.getPhoneNumber() != null && !user.getPhoneNumber().isEmpty()) {
-                        System.out.println("DEBUG: Sending SMS to " + user.getPhoneNumber());
-                        twilioService.sendSms(user.getPhoneNumber(), smsMessage);
+                    for (User user : users) {
+                        if (user.getPhoneNumber() != null && !user.getPhoneNumber().isEmpty()) {
+                            twilioService.sendSms(user.getPhoneNumber(), smsMessage);
+                        }
                     }
+                } catch (Exception e) {
+                    System.err.println(" Twilio Broadcast Error: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                System.err.println(" Twilio Broadcast Error: " + e.getMessage());
-            }
-        });
+            });
+        }
 
         return ResponseEntity.ok(savedAlert);
     }
