@@ -38,7 +38,7 @@ public class GeminiService {
 
             Map response = restClient.post()
                     // THE FINAL, STABLE URI:
-                    .uri("/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey)
+                    .uri("/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey)
                     .body(requestBody)
                     .retrieve()
                     .body(Map.class);
